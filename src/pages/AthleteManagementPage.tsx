@@ -1,402 +1,207 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Progress } from '../components/ui/progress'
-
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog'
-import { 
-  Trophy, 
-  Target, 
-  Medal, 
-  Users, 
-  Zap,
-  Activity,
-  BarChart3,
-
-  Star,
-  TrendingUp,
-  Clock,
-  Home
-} from 'lucide-react'
+import { Plus, Users, Trophy, Target, TrendingUp } from 'lucide-react'
+import { Navigation } from '../components/Navigation'
 import { useGame } from '../context/GameContext'
-import { countries, sports } from '../data/countries'
-import { Link } from 'react-router-dom'
-import { blink } from '../blink/client'
+// import { useAuth } from '../context/AuthContext'
+import { CreateAthleteDialog } from '../components/CreateAthleteDialog'
 
-const AthleteManagementPage = () => {
-  const { user, athletes, refreshData } = useGame()
+export const AthleteManagementPage = () => {
+  const { athletes, sports } = useGame()
+  // const { } = useAuth()
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
 
-  const [trainingType, setTrainingType] = useState<'stamina' | 'strength' | 'speed' | 'technique' | 'mental'>('stamina')
-  const [isTraining, setIsTraining] = useState(false)
-
-  const handleTraining = async (athleteId: string, type: 'stamina' | 'strength' | 'speed' | 'technique' | 'mental') => {
-    if (!user) return
-    
-    try {
-      setIsTraining(true)
-      
-      const athlete = athletes.find(a => a.id === athleteId)
-      if (!athlete) return
-
-      // Calculate training results
-      const baseImprovement = Math.floor(Math.random() * 5) + 1
-      const improvement = Math.min(baseImprovement, 100 - athlete[type])
-      
-      // Update athlete stats
-      const updatedStats = {
-        ...athlete,
-        [type]: athlete[type] + improvement,
-        experience: athlete.experience + 10
-      }
-
-      // Check for level up
-      const experienceThresholds = {
-        amateur: 100,
-        advanced: 300,
-        professional: 600,
-        olympian: 1000,
-        titan: 2000
-      }
-
-      let newLevel = athlete.level
-      if (updatedStats.experience >= experienceThresholds.olympian && athlete.level === 'professional') {
-        newLevel = 'olympian'
-      } else if (updatedStats.experience >= experienceThresholds.professional && athlete.level === 'advanced') {
-        newLevel = 'professional'
-      } else if (updatedStats.experience >= experienceThresholds.advanced && athlete.level === 'amateur') {
-        newLevel = 'advanced'
-      } else if (updatedStats.experience >= experienceThresholds.titan && athlete.level === 'olympian') {
-        newLevel = 'titan'
-      }
-
-      // Update athlete in database
-      await blink.db.athletes.update(athleteId, {
-        ...updatedStats,
-        level: newLevel
-      })
-
-      // Create training record
-      await blink.db.training.create({
-        athlete_id: athleteId,
-        type,
-        duration: 2,
-        intensity: 75,
-        cost: 50,
-        date: new Date().toISOString(),
-        result: improvement
-      })
-
-      // Refresh data
-      await refreshData()
-      
-    } catch (error) {
-      console.error('Training error:', error)
-    } finally {
-      setIsTraining(false)
+  const getLevelColor = (level: string) => {
+    switch (level) {
+      case 'amateur': return 'bg-gray-100 text-gray-800'
+      case 'advanced': return 'bg-blue-100 text-blue-800'
+      case 'professional': return 'bg-green-100 text-green-800'
+      case 'olympian': return 'bg-purple-100 text-purple-800'
+      case 'titan': return 'bg-yellow-100 text-yellow-800'
+      default: return 'bg-gray-100 text-gray-800'
     }
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-amber-50 flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Трябва да влезете в профила си</CardTitle>
-            <CardDescription>Моля, влезте в профила си за да управлявате атлетите</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link to="/">
-              <Button className="w-full">Обратно към началото</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    )
+  const getLevelText = (level: string) => {
+    switch (level) {
+      case 'amateur': return 'Аматьор'
+      case 'advanced': return 'Напреднал'
+      case 'professional': return 'Професионалист'
+      case 'olympian': return 'Олимпиец'
+      case 'titan': return 'Титан'
+      default: return 'Неизвестно'
+    }
   }
 
-  const userCountry = countries.find(c => c.id === user.country_id)
+  const getAthleteStats = (athlete: { stamina?: number; strength?: number; speed?: number; technique?: number; mental?: number }) => {
+    const stats = [
+      { label: 'Издръжливост', value: athlete.stamina || 50 },
+      { label: 'Сила', value: athlete.strength || 50 },
+      { label: 'Скорост', value: athlete.speed || 50 },
+      { label: 'Техника', value: athlete.technique || 50 },
+      { label: 'Психика', value: athlete.mental || 50 }
+    ]
+    return stats
+  }
+
+  const getSportName = (sportId: string) => {
+    const sport = sports.find(s => s.id === sportId)
+    return sport ? sport.name : 'Неизвестен спорт'
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-amber-50">
-      {/* Header */}
-      <div className="border-b bg-white/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-4">
-              <Link to="/dashboard" className="flex items-center gap-2 hover:opacity-80">
-                <Home className="h-6 w-6 text-blue-600" />
-                <span className="text-blue-600">Начало</span>
-              </Link>
-              <div className="flex items-center gap-2">
-                <Users className="h-8 w-8 text-blue-500" />
-                <h1 className="text-2xl font-bold">Управление на атлети</h1>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">{userCountry?.flag}</span>
-                <span className="text-lg font-medium">{userCountry?.name}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <Badge variant="secondary" className="text-sm">
-                {athletes.length} атлета
-              </Badge>
-            </div>
+      <Navigation />
+      
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-gray-800 mb-2">
+              Управление на атлети
+            </h1>
+            <p className="text-xl text-gray-600">
+              Създавайте и развивайте вашите атлети до олимпийска слава
+            </p>
           </div>
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Създай атлет
+          </Button>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Athletes List */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-amber-500" />
-                  Вашите атлети
-                </CardTitle>
-                <CardDescription>
-                  Управлявайте и развивайте уменията на спортистите си
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {athletes.map((athlete) => {
-                    const sport = sports.find(s => s.id === athlete.sport_id)
-                    const levelColors = {
-                      amateur: 'bg-gray-100 text-gray-800',
-                      advanced: 'bg-blue-100 text-blue-800',
-                      professional: 'bg-green-100 text-green-800',
-                      olympian: 'bg-amber-100 text-amber-800',
-                      titan: 'bg-purple-100 text-purple-800'
-                    }
-                    
-                    const averageSkill = (athlete.stamina + athlete.strength + athlete.speed + athlete.technique + athlete.mental) / 5
-                    
-                    return (
-                      <Card key={athlete.id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                                {athlete.name.charAt(0)}
-                              </div>
-                              <div>
-                                <div className="font-medium text-lg">{athlete.name}</div>
-                                <div className="text-sm text-gray-500">{sport?.name} • {athlete.age} години</div>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge className={levelColors[athlete.level]} variant="secondary">
-                                    {athlete.level}
-                                  </Badge>
-                                  <Badge variant="outline" className="text-xs">
-                                    {athlete.experience} опит
-                                  </Badge>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-2xl font-bold text-blue-600">{averageSkill.toFixed(0)}</div>
-                              <div className="text-xs text-gray-500">Средна оценка</div>
-                            </div>
-                          </div>
-                          
-                          {/* Skills */}
-                          <div className="mt-4 space-y-2">
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                              <div>
-                                <div className="flex justify-between mb-1">
-                                  <span>Издръжливост</span>
-                                  <span className="font-medium">{athlete.stamina}</span>
-                                </div>
-                                <Progress value={athlete.stamina} className="h-2" />
-                              </div>
-                              <div>
-                                <div className="flex justify-between mb-1">
-                                  <span>Сила</span>
-                                  <span className="font-medium">{athlete.strength}</span>
-                                </div>
-                                <Progress value={athlete.strength} className="h-2" />
-                              </div>
-                              <div>
-                                <div className="flex justify-between mb-1">
-                                  <span>Скорост</span>
-                                  <span className="font-medium">{athlete.speed}</span>
-                                </div>
-                                <Progress value={athlete.speed} className="h-2" />
-                              </div>
-                              <div>
-                                <div className="flex justify-between mb-1">
-                                  <span>Техника</span>
-                                  <span className="font-medium">{athlete.technique}</span>
-                                </div>
-                                <Progress value={athlete.technique} className="h-2" />
-                              </div>
-                            </div>
-                            <div className="w-full">
-                              <div className="flex justify-between mb-1">
-                                <span>Ментално състояние</span>
-                                <span className="font-medium">{athlete.mental}</span>
-                              </div>
-                              <Progress value={athlete.mental} className="h-2" />
-                            </div>
-                          </div>
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Общо атлети</CardTitle>
+              <Users className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{athletes.length}</div>
+              <p className="text-xs text-muted-foreground">
+                от максимум {sports.length * 20}
+              </p>
+            </CardContent>
+          </Card>
 
-                          {/* Training Actions */}
-                          <div className="mt-4 flex gap-2">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button size="sm" className="flex-1">
-                                  <Zap className="h-4 w-4 mr-2" />
-                                  Тренировка
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Тренировка за {athlete.name}</DialogTitle>
-                                  <DialogDescription>
-                                    Изберете тип тренировка за подобряване на уменията
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <Button
-                                      variant={trainingType === 'stamina' ? 'default' : 'outline'}
-                                      onClick={() => setTrainingType('stamina')}
-                                      className="flex flex-col gap-2 h-auto p-4"
-                                    >
-                                      <Activity className="h-5 w-5" />
-                                      <span>Издръжливост</span>
-                                      <span className="text-xs opacity-70">{athlete.stamina}/100</span>
-                                    </Button>
-                                    <Button
-                                      variant={trainingType === 'strength' ? 'default' : 'outline'}
-                                      onClick={() => setTrainingType('strength')}
-                                      className="flex flex-col gap-2 h-auto p-4"
-                                    >
-                                      <Target className="h-5 w-5" />
-                                      <span>Сила</span>
-                                      <span className="text-xs opacity-70">{athlete.strength}/100</span>
-                                    </Button>
-                                    <Button
-                                      variant={trainingType === 'speed' ? 'default' : 'outline'}
-                                      onClick={() => setTrainingType('speed')}
-                                      className="flex flex-col gap-2 h-auto p-4"
-                                    >
-                                      <Zap className="h-5 w-5" />
-                                      <span>Скорост</span>
-                                      <span className="text-xs opacity-70">{athlete.speed}/100</span>
-                                    </Button>
-                                    <Button
-                                      variant={trainingType === 'technique' ? 'default' : 'outline'}
-                                      onClick={() => setTrainingType('technique')}
-                                      className="flex flex-col gap-2 h-auto p-4"
-                                    >
-                                      <Star className="h-5 w-5" />
-                                      <span>Техника</span>
-                                      <span className="text-xs opacity-70">{athlete.technique}/100</span>
-                                    </Button>
-                                  </div>
-                                  <Button
-                                    variant={trainingType === 'mental' ? 'default' : 'outline'}
-                                    onClick={() => setTrainingType('mental')}
-                                    className="flex justify-between items-center w-full h-auto p-4"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <BarChart3 className="h-5 w-5" />
-                                      <span>Ментално състояние</span>
-                                    </div>
-                                    <span className="text-xs opacity-70">{athlete.mental}/100</span>
-                                  </Button>
-                                  <Button
-                                    onClick={() => handleTraining(athlete.id, trainingType)}
-                                    disabled={isTraining}
-                                    className="w-full"
-                                  >
-                                    {isTraining ? 'Трениране...' : 'Започни тренировка'}
-                                  </Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                            <Button size="sm" variant="outline" disabled>
-                              <Medal className="h-4 w-4 mr-2" />
-                              Състезания
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Олимпийци</CardTitle>
+              <Trophy className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {athletes.filter(a => a.level === 'olympian' || a.level === 'titan').length}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                elit атлети
+              </p>
+            </CardContent>
+          </Card>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Stats */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-green-500" />
-                  Статистики
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">{athletes.length}</div>
-                    <div className="text-sm text-gray-500">Общо атлети</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-amber-600">
-                      {athletes.reduce((sum, athlete) => sum + athlete.achievements.length, 0)}
-                    </div>
-                    <div className="text-sm text-gray-500">Постижения</div>
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {athletes.length > 0 ? 
-                      ((athletes.reduce((sum, athlete) => sum + athlete.stamina + athlete.strength + athlete.speed + athlete.technique + athlete.mental, 0) / (athletes.length * 5)).toFixed(1)) : 
-                      '0'
-                    }
-                  </div>
-                  <div className="text-sm text-gray-500">Средна оценка</div>
-                </div>
-              </CardContent>
-            </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Средно ниво</CardTitle>
+              <Target className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {athletes.length > 0 ? Math.round(athletes.reduce((acc, a) => acc + (a.experience || 0), 0) / athletes.length) : 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                опит точки
+              </p>
+            </CardContent>
+          </Card>
 
-            {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-blue-500" />
-                  Последна активност
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {athletes.slice(0, 3).map((athlete) => (
-                    <div key={athlete.id} className="flex items-center gap-3 text-sm">
-                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xs">
-                        {athlete.name.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="font-medium">{athlete.name}</div>
-                        <div className="text-gray-500">Създаден</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Активни спортове</CardTitle>
+              <TrendingUp className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {new Set(athletes.map(a => a.sport_id)).size}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                различни спорта
+              </p>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Athletes Grid */}
+        {athletes.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {athletes.map((athlete) => (
+              <Card key={athlete.id} className="hover:shadow-lg transition-shadow duration-300">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">{athlete.name}</CardTitle>
+                    <Badge className={getLevelColor(athlete.level)}>
+                      {getLevelText(athlete.level)}
+                    </Badge>
+                  </div>
+                  <CardDescription>
+                    {getSportName(athlete.sport_id)} • {athlete.age} години
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Опит</span>
+                        <span>{athlete.experience || 0} точки</span>
+                      </div>
+                      <Progress value={Math.min((athlete.experience || 0) / 10, 100)} className="h-2" />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {getAthleteStats(athlete).map((stat, index) => (
+                        <div key={index} className="flex justify-between">
+                          <span className="text-gray-600">{stat.label}:</span>
+                          <span className="font-medium">{stat.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="text-center py-16">
+            <CardContent>
+              <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                Няmate атлети все още
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Създайте първия си атлет и започнете пътуването към олимпийска слава
+              </p>
+              <Button
+                onClick={() => setShowCreateDialog(true)}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Създай първия атлет
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Create Athlete Dialog */}
+        <CreateAthleteDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+        />
       </div>
     </div>
   )
 }
-
-export default AthleteManagementPage

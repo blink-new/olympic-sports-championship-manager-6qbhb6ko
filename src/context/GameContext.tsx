@@ -1,16 +1,19 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { blink } from '../blink/client'
-import { User, Athlete, Competition, NewsItem, Country } from '../types/game'
+import { Athlete, Competition, NewsItem, Country, Sport } from '../types/game'
+import { useAuth } from './AuthContext'
 
 interface GameContextType {
-  user: User | null
   athletes: Athlete[]
   competitions: Competition[]
   news: NewsItem[]
   countries: Country[]
+  sports: Sport[]
   loading: boolean
   refreshData: () => Promise<void>
-  setUser: (user: User | null) => void
+  refreshAthletes: () => Promise<void>
+  refreshCompetitions: () => Promise<void>
+  refreshNews: () => Promise<void>
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined)
@@ -24,101 +27,72 @@ export const useGame = () => {
 }
 
 export const GameProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null)
+  const { user } = useAuth()
   const [athletes, setAthletes] = useState<Athlete[]>([])
   const [competitions, setCompetitions] = useState<Competition[]>([])
   const [news, setNews] = useState<NewsItem[]>([])
   const [countries, setCountries] = useState<Country[]>([])
-  const [loading, setLoading] = useState(true)
+  const [sports, setSports] = useState<Sport[]>([])
+  const [loading, setLoading] = useState(false)
 
-  const refreshData = async () => {
+  const refreshAthletes = async () => {
+    if (!user) return
     try {
-      setLoading(true)
-
-      // Ensure user is authenticated before fetching protected data
-      if (!blink.auth.isAuthenticated()) {
-        // Not logged in yet – skip fetching until auth completes
-        setUser(null)
-        setAthletes([])
-        setCompetitions([])
-        setNews([])
-        setCountries([])
-        setLoading(false)
-        return
-      }
-
-      // Load user data
-      const authUser = await blink.auth.me()
-      if (authUser) {
-        // Ensure the users table exists by performing an upsert
-        try {
-          await blink.db.users.upsertMany([
-            {
-              id: authUser.id,
-              email: authUser.email ?? '',
-              display_name: authUser.email ?? 'Player',
-              country_id: '',
-              created_at: new Date().toISOString(),
-              level: 1,
-              experience: 0,
-              reputation: 0,
-              hosting_rights: []
-            }
-          ])
-        } catch (err) {
-          // Ignore table not found error if SDK still initialising – it will be created on first upsert
-          console.warn('Upsert users table warning:', err)
-        }
-
-        let profile: User | null = null
-        try {
-          const list = await blink.db.users.list({ where: { id: authUser.id }, limit: 1 })
-          profile = list.length ? list[0] : null
-        } catch (err) {
-          console.warn('Fetch user profile failed:', err)
-        }
-
-        const baseUser = profile ?? {
-          id: authUser.id,
-          email: authUser.email ?? '',
-          display_name: authUser.email ?? 'Player',
-          country_id: '',
-          created_at: new Date().toISOString(),
-          level: 1,
-          experience: 0,
-          reputation: 0,
-          hosting_rights: []
-        }
-
-        setUser(baseUser as User)
-      }
-
-      // Load athletes
       const athletesData = await blink.db.athletes.list({
-        where: { user_id: authUser?.id },
+        where: { user_id: user.id },
         orderBy: { created_at: 'desc' }
       })
       setAthletes(athletesData as Athlete[])
+    } catch (error) {
+      console.error('Error loading athletes:', error)
+    }
+  }
 
-      // Load competitions
+  const refreshCompetitions = async () => {
+    try {
       const competitionsData = await blink.db.competitions.list({
         orderBy: { start_date: 'desc' },
         limit: 50
       })
       setCompetitions(competitionsData as Competition[])
+    } catch (error) {
+      console.error('Error loading competitions:', error)
+    }
+  }
 
-      // Load news
+  const refreshNews = async () => {
+    try {
       const newsData = await blink.db.news.list({
         orderBy: { published_at: 'desc' },
         limit: 20
       })
       setNews(newsData as NewsItem[])
+    } catch (error) {
+      console.error('Error loading news:', error)
+    }
+  }
 
+  const refreshData = async () => {
+    setLoading(true)
+    try {
       // Load countries
       const countriesData = await blink.db.countries.list({
         orderBy: { name: 'asc' }
       })
       setCountries(countriesData as Country[])
+
+      // Load sports
+      const sportsData = await blink.db.sports.list({
+        orderBy: { name: 'asc' }
+      })
+      setSports(sportsData as Sport[])
+
+      // Load other data
+      await Promise.all([
+        refreshAthletes(),
+        refreshCompetitions(),
+        refreshNews()
+      ])
     } catch (error) {
       console.error('Error loading game data:', error)
     } finally {
@@ -127,32 +101,23 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
   }
 
   useEffect(() => {
-    const unsubscribe = blink.auth.onAuthStateChanged((user) => {
-      if (user) {
-        refreshData()
-      } else {
-        setUser(null)
-        setAthletes([])
-        setCompetitions([])
-        setNews([])
-        setCountries([])
-      }
-    })
-    return () => {
-      unsubscribe()
+    if (user) {
+      refreshData()
     }
-  }, [])
+  }, [user])
 
   return (
     <GameContext.Provider value={{
-      user,
       athletes,
       competitions,
       news,
       countries,
+      sports,
       loading,
       refreshData,
-      setUser
+      refreshAthletes,
+      refreshCompetitions,
+      refreshNews
     }}>
       {children}
     </GameContext.Provider>

@@ -1,72 +1,101 @@
+import React from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
-import { BarChart3, Trophy, Medal, Home, Globe, Crown, Award } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { countries } from '../data/countries'
+import { Trophy, Medal, Users, Crown, Star } from 'lucide-react'
+import { Navigation } from '../components/Navigation'
+import { useGame } from '../context/GameContext'
 
-const LeaderboardsPage = () => {
-  const mockCountryMedals = [
-    { country_id: 'us', gold: 45, silver: 38, bronze: 33, total: 116 },
-    { country_id: 'cn', gold: 38, silver: 32, bronze: 18, total: 88 },
-    { country_id: 'gb', gold: 22, silver: 21, bronze: 22, total: 65 },
-    { country_id: 'ru', gold: 20, silver: 28, bronze: 23, total: 71 },
-    { country_id: 'de', gold: 17, silver: 10, bronze: 15, total: 42 },
-    { country_id: 'bg', gold: 3, silver: 5, bronze: 7, total: 15 },
+export const LeaderboardsPage = () => {
+  const { athletes, countries } = useGame()
+
+  const getCountryName = (countryId: string) => {
+    const country = countries.find(c => c.id === countryId)
+    return country ? country.name : 'Неизвестна държава'
+  }
+
+  const getCountryFlag = (countryId: string) => {
+    const country = countries.find(c => c.id === countryId)
+    return country ? country.flag : '🏳️'
+  }
+
+  // Mock medal data - in real app this would come from competition results
+  const medalStandings = [
+    { country_id: 'us', gold: 12, silver: 8, bronze: 15, total: 35 },
+    { country_id: 'ru', gold: 10, silver: 12, bronze: 8, total: 30 },
+    { country_id: 'de', gold: 8, silver: 10, bronze: 12, total: 30 },
+    { country_id: 'cn', gold: 7, silver: 6, bronze: 9, total: 22 },
+    { country_id: 'fr', gold: 6, silver: 8, bronze: 7, total: 21 },
+    { country_id: 'bg', gold: 2, silver: 3, bronze: 4, total: 9 }
   ]
 
-  const mockTopAthletes = [
-    { name: 'Иван Петров', country: 'bg', sport: 'Athletics', medals: 5, level: 'titan' },
-    { name: 'Maria Garcia', country: 'es', sport: 'Swimming', medals: 4, level: 'olympian' },
-    { name: 'John Smith', country: 'us', sport: 'Basketball', medals: 3, level: 'olympian' },
-    { name: 'Li Wei', country: 'cn', sport: 'Gymnastics', medals: 4, level: 'titan' },
-    { name: 'Sophie Martin', country: 'fr', sport: 'Tennis', medals: 2, level: 'professional' },
-  ]
+  // Top athletes by level and experience
+  const topAthletes = [...athletes]
+    .sort((a, b) => {
+      const levelOrder = { titan: 5, olympian: 4, professional: 3, advanced: 2, amateur: 1 }
+      const levelDiff = (levelOrder[b.level] || 0) - (levelOrder[a.level] || 0)
+      if (levelDiff !== 0) return levelDiff
+      return (b.experience || 0) - (a.experience || 0)
+    })
+    .slice(0, 10)
 
-  const levelColors = {
-    amateur: 'bg-gray-100 text-gray-800',
-    advanced: 'bg-blue-100 text-blue-800',
-    professional: 'bg-green-100 text-green-800',
-    olympian: 'bg-amber-100 text-amber-800',
-    titan: 'bg-purple-100 text-purple-800'
+  const getLevelIcon = (level: string) => {
+    switch (level) {
+      case 'titan': return <Crown className="w-4 h-4 text-yellow-600" />
+      case 'olympian': return <Star className="w-4 h-4 text-purple-600" />
+      case 'professional': return <Trophy className="w-4 h-4 text-green-600" />
+      case 'advanced': return <Medal className="w-4 h-4 text-blue-600" />
+      default: return <Users className="w-4 h-4 text-gray-600" />
+    }
+  }
+
+  const getLevelText = (level: string) => {
+    switch (level) {
+      case 'amateur': return 'Аматьор'
+      case 'advanced': return 'Напреднал'
+      case 'professional': return 'Професионалист'
+      case 'olympian': return 'Олимпиец'
+      case 'titan': return 'Титан'
+      default: return 'Неизвестно'
+    }
+  }
+
+  const getRankIcon = (position: number) => {
+    switch (position) {
+      case 1: return '🥇'
+      case 2: return '🥈'
+      case 3: return '🥉'
+      default: return `${position}.`
+    }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-amber-50">
-      {/* Header */}
-      <div className="border-b bg-white/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-4">
-              <Link to="/dashboard" className="flex items-center gap-2 hover:opacity-80">
-                <Home className="h-6 w-6 text-blue-600" />
-                <span className="text-blue-600">Начало</span>
-              </Link>
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-8 w-8 text-blue-500" />
-                <h1 className="text-2xl font-bold">Класирания и статистики</h1>
-              </div>
-            </div>
-          </div>
+      <Navigation />
+      
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">
+            Класации
+          </h1>
+          <p className="text-xl text-gray-600">
+            Следете водещите държави, атлети и постижения
+          </p>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <Tabs defaultValue="countries" className="w-full">
+        <Tabs defaultValue="medals" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="countries">По държави</TabsTrigger>
-            <TabsTrigger value="athletes">Най-добри атлети</TabsTrigger>
+            <TabsTrigger value="medals">Медали по държави</TabsTrigger>
+            <TabsTrigger value="athletes">Топ атлети</TabsTrigger>
             <TabsTrigger value="records">Рекорди</TabsTrigger>
           </TabsList>
 
-          {/* Countries Tab */}
-          <TabsContent value="countries" className="space-y-6">
+          <TabsContent value="medals" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5 text-blue-500" />
-                  Класиране по държави
+                  <Trophy className="w-5 h-5" />
+                  Класация по медали
                 </CardTitle>
                 <CardDescription>
                   Общо медали спечелени от всяка държава
@@ -74,120 +103,112 @@ const LeaderboardsPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {mockCountryMedals.map((country, index) => {
-                    const countryData = countries.find(c => c.id === country.country_id)
-                    return (
-                      <div key={country.country_id} className="flex items-center justify-between p-4 rounded-lg border">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full text-white font-bold">
-                            {index + 1}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-3xl">{countryData?.flag}</span>
-                            <div>
-                              <div className="font-semibold text-lg">{countryData?.name}</div>
-                              <div className="text-sm text-gray-500">{country.total} общо медала</div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-gradient-to-br from-amber-400 to-amber-500 rounded-full flex items-center justify-center">
-                              <Crown className="h-3 w-3 text-white" />
-                            </div>
-                            <span className="font-bold">{country.gold}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center">
-                              <Medal className="h-3 w-3 text-white" />
-                            </div>
-                            <span className="font-bold">{country.silver}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-gradient-to-br from-amber-700 to-amber-800 rounded-full flex items-center justify-center">
-                              <Award className="h-3 w-3 text-white" />
-                            </div>
-                            <span className="font-bold">{country.bronze}</span>
-                          </div>
-                          <div className="text-xl font-bold text-blue-600 ml-4">
-                            {country.total}
+                  {medalStandings.map((country, index) => (
+                    <div key={country.country_id} className="flex items-center justify-between p-4 bg-white rounded-lg border hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-4">
+                        <span className="text-2xl font-bold w-8">
+                          {getRankIcon(index + 1)}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">{getCountryFlag(country.country_id)}</span>
+                          <div>
+                            <h3 className="font-semibold">{getCountryName(country.country_id)}</h3>
+                            <p className="text-sm text-gray-600">Общо: {country.total} медала</p>
                           </div>
                         </div>
                       </div>
-                    )
-                  })}
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-600 font-bold">🥇 {country.gold}</span>
+                          <span className="text-gray-400 font-bold">🥈 {country.silver}</span>
+                          <span className="text-amber-600 font-bold">🥉 {country.bronze}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Athletes Tab */}
           <TabsContent value="athletes" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-amber-500" />
-                  Най-добри атлети
+                  <Users className="w-5 h-5" />
+                  Топ атлети
                 </CardTitle>
                 <CardDescription>
-                  Топ атлети по брой медали и постижения
+                  Най-успешните атлети по ниво и опит
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {mockTopAthletes.map((athlete, index) => {
-                    const countryData = countries.find(c => c.id === athlete.country)
-                    return (
-                      <div key={athlete.name} className="flex items-center justify-between p-4 rounded-lg border">
+                {topAthletes.length > 0 ? (
+                  <div className="space-y-4">
+                    {topAthletes.map((athlete, index) => (
+                      <div key={athlete.id} className="flex items-center justify-between p-4 bg-white rounded-lg border hover:shadow-md transition-shadow">
                         <div className="flex items-center gap-4">
-                          <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full text-white font-bold">
-                            {index + 1}
-                          </div>
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                            {athlete.name.charAt(0)}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-lg">{athlete.name}</span>
-                              <span className="text-lg">{countryData?.flag}</span>
+                          <span className="text-2xl font-bold w-8">
+                            {getRankIcon(index + 1)}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl">{getCountryFlag(athlete.country_id)}</span>
+                            <div>
+                              <h3 className="font-semibold">{athlete.name}</h3>
+                              <p className="text-sm text-gray-600">{athlete.age} години</p>
                             </div>
-                            <div className="text-sm text-gray-500">{athlete.sport}</div>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
-                          <Badge className={levelColors[athlete.level as keyof typeof levelColors]}>
-                            {athlete.level}
+                          <Badge className="bg-blue-100 text-blue-800">
+                            {athlete.sport_id}
                           </Badge>
                           <div className="flex items-center gap-2">
-                            <Medal className="h-4 w-4 text-amber-500" />
-                            <span className="font-bold">{athlete.medals}</span>
+                            {getLevelIcon(athlete.level)}
+                            <span className="font-medium">{getLevelText(athlete.level)}</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold">{athlete.experience || 0} опит</p>
                           </div>
                         </div>
                       </div>
-                    )
-                  })}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                      Няма атлети все още
+                    </h3>
+                    <p className="text-gray-600">
+                      Създайте атлети за да ги видите в класацията
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Records Tab */}
           <TabsContent value="records" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Award className="h-5 w-5 text-purple-500" />
+                  <Star className="w-5 h-5" />
                   Световни рекорди
                 </CardTitle>
                 <CardDescription>
-                  Най-добри постижения в различните спортове
+                  Най-добрите постижения в различните спортове
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8">
-                  <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 mb-4">Все още няма установени рекорди</p>
-                  <p className="text-sm text-gray-500">Станете първия световен рекордьор!</p>
+                <div className="text-center py-16">
+                  <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                    Рекордите ще бъдат добавени
+                  </h3>
+                  <p className="text-gray-600">
+                    Участвайте в състезания за да създавате нови рекорди
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -197,5 +218,3 @@ const LeaderboardsPage = () => {
     </div>
   )
 }
-
-export default LeaderboardsPage

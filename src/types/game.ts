@@ -11,7 +11,7 @@ export interface Sport {
   type: 'summer' | 'winter'
   category: string
   description: string
-  icon: ComponentType<{ className?: string }>
+  icon: string
 }
 
 export interface Athlete {
